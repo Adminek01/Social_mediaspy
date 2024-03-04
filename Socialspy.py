@@ -1,4 +1,3 @@
-import json
 import signal
 import os
 import sys
@@ -6,7 +5,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sherlock
 import gensim
-import aiohttp
 import asyncio
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from colorama import init
@@ -42,33 +40,6 @@ class QueryNotifyPrint:
     def update(self, result):
         if self.verbose:
             print(result)
-
-async def facebook_advanced_search(account_id, verbose=0):
-    url = f"https://graph.facebook.com/{account_id}"
-    access_token = 'your_access_token_here'  # Replace with your Facebook Graph API access token
-    try:
-        full_url = f"{url}?fields=id,name,email,first_name,last_name,gender,birthday,location,work,education,relationship_status&access_token={access_token}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(full_url) as response:
-                data = await response.json()
-                if 'error' in data:
-                    print(f"Error: {data['error']['message']}")
-                else:
-                    print("Facebook Account Information:")
-                    print(f"Name: {data.get('name')}")
-                    print(f"ID: {data.get('id')}")
-                    print(f"Email: {data.get('email')}")
-                    print(f"First Name: {data.get('first_name')}")
-                    print(f"Last Name: {data.get('last_name')}")
-                    print(f"Gender: {data.get('gender')}")
-                    print(f"Birthday: {data.get('birthday')}")
-                    print(f"Location: {data.get('location')}")
-                    print(f"Work: {data.get('work')}")
-                    print(f"Education: {data.get('education')}")
-                    print(f"Relationship Status: {data.get('relationship_status')}")
-                    return data
-    except aiohttp.ClientError as e:
-        print(f"Network error: {e}")
 
 def social_media_search(username, verbose=0):
     print(f"Searching for username: {username} on other social media platforms.")
@@ -186,20 +157,13 @@ async def main():
     analyze = args.analyze
     summary = args.summary
 
-    if account_id.isdigit():
-        # Search for the Facebook account information
-        data = await facebook_advanced_search(account_id, verbose)
-        if search:
-            # Search for the given username on other social media platforms
-            social_media_search(data.get('name'), verbose)
-        if analyze:
-            # Analyze and visualize the data from Facebook account
-            data_analysis(data, output)
-        if summary:
-            # Generate a summary of the data from Facebook account
-            data_summary(data, output)
-    else:
-        print("Please provide a valid Facebook account ID or URL.")
+    if analyze or search:
+        print("Analysis and search functionalities are disabled as the program does not use Facebook Graph API.")
+        sys.exit(1)
+
+    if summary:
+        print("Summary functionality is disabled as the program does not use Facebook Graph API.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())

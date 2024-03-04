@@ -157,13 +157,20 @@ async def main():
     analyze = args.analyze
     summary = args.summary
 
-    if analyze or search:
-        print("Analysis and search functionalities are disabled as the program does not use Facebook Graph API.")
+    if account_id.isdigit():
+        # Placeholder for fetching data from other sources if needed in future
+        pass
+    else:
+        print("Please provide a valid Facebook account ID or URL.")
         sys.exit(1)
 
-    if summary:
-        print("Summary functionality is disabled as the program does not use Facebook Graph API.")
-        sys.exit(1)
+    if analyze:
+        # Placeholder for data analysis
+        pass
+
+    if search:
+        # Placeholder for social media search
+        pass
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,38 +1,22 @@
-#! /usr/bin/env python3
-
-"""
-Sherlock: Find Usernames Across Social Networks Module
-
-This module contains the main logic to search for usernames at social
-networks.
-"""
-
-import csv
+import urllib.request
+import json
 import signal
 import os
-import platform
 import sys
-import requests
-import threading
-import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import sherlock
 import gensim
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from time import monotonic
 from colorama import init
-from argparse import ArgumentTypeError
 
 module_name = "Sherlock: Find Usernames Across Social Networks"
 __version__ = "0.14.3"
-
 
 class QueryStatus:
     CLAIMED = "Claimed"
     AVAILABLE = "Available"
     UNKNOWN = "Unknown"
-
 
 class QueryResult:
     def __init__(self, username, site_name, site_url_user, status, query_time=None, context=None):
@@ -46,7 +30,6 @@ class QueryResult:
     def __str__(self):
         return f"Username: {self.username}, Site: {self.site_name}, URL: {self.site_url_user}, Status: {self.status}, Query Time: {self.query_time}, Context: {self.context}"
 
-
 class QueryNotifyPrint:
     def __init__(self, verbose=0):
         self.verbose = verbose
@@ -59,17 +42,13 @@ class QueryNotifyPrint:
         if self.verbose:
             print(result)
 
-
 def facebook_advanced_search(account_id, verbose=0):
     url = f"https://graph.facebook.com/{account_id}"
-    params = {
-        'fields': 'id,name,email,first_name,last_name,gender,birthday,location,work,education,relationship_status',
-        'access_token': 'your_access_token_here'  # Replace with your Facebook Graph API access token
-    }
+    access_token = 'your_access_token_here'  # Replace with your Facebook Graph API access token
     try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
+        full_url = f"{url}?fields=id,name,email,first_name,last_name,gender,birthday,location,work,education,relationship_status&access_token={access_token}"
+        response = urllib.request.urlopen(full_url)
+        data = json.loads(response.read().decode('utf-8'))
         if 'error' in data:
             print(f"Error: {data['error']['message']}")
         else:
@@ -86,11 +65,8 @@ def facebook_advanced_search(account_id, verbose=0):
             print(f"Education: {data.get('education')}")
             print(f"Relationship Status: {data.get('relationship_status')}")
             return data
-    except requests.exceptions.RequestException as e:
+    except urllib.error.URLError as e:
         print(f"Network error: {e}")
-    except facebook.GraphAPIError as e:
-        print(f"Facebook API error: {e}")
-
 
 def social_media_search(username, verbose=0):
     print(f"Searching for username: {username} on other social media platforms.")
@@ -98,7 +74,6 @@ def social_media_search(username, verbose=0):
     print(f"Found {len(results)} results:")
     for result in results:
         print(result)
-
 
 def data_analysis(data, output=None):
     print("Analyzing and visualizing the data from Facebook account.")
@@ -119,66 +94,49 @@ def data_analysis(data, output=None):
     df['location'] = df['location'].str.split("'name': ").str[1].str.split("'").str[0]
     # Convert the work column to a string and extract the employer name
     df['work'] = df['work'].astype(str)
-    df['work'] = df['work'].str.split("'employer': ").str[1].str.split("'name': ").str[1].str.split("'").str[0]
-    # Convert the education column to a string and extract the school name
-    df['education'] = df['education'].astype(str)
-    df['education'] = df['education'].str.split("'school': ").str[1].str.split("'name': ").str[1].str.split("'").str[0]
-    # Print the DataFrame
-    print(df)
+    df['work'] = df['work'].str.split("'name': ").str[1].str.split("'").str[0]
+    # Create a new column for education level based on the education column
+    df['education_level'] = df['education'].apply(lambda x: gensim.summarization.keywords(x, words=1, lemmatize=True))
+
     # Plot a pie chart of the gender distribution
+    gender_counts = df['gender'].value_counts()
     plt.figure()
-    df['gender'].value_counts().plot(kind='pie', title='Gender Distribution', autopct='%1.1f%%')
-    plt.show()
-    # Plot a histogram of the age distribution
-    plt.figure()
-    df['age'].plot(kind='hist', title='Age Distribution', bins=10)
-    plt.show()
-    # Plot a bar chart of the location distribution
-    plt.figure()
-    df['location'].value_counts().plot(kind='bar', title='Location Distribution', rot=0)
-    plt.show()
-    # Plot a bar chart of the work distribution
-    plt.figure()
-    df['work'].value_counts().plot(kind='bar', title='Work Distribution', rot=0)
-    plt.show()
-    # Plot a bar chart of the education distribution
-    plt.figure()
-    df['education'].value_counts().plot(kind='bar', title='Education Distribution', rot=0)
-    plt.show()
-    # Optionally, save the DataFrame and the plots to a file in the specified format
+    plt.pie(gender_counts, labels=gender_counts.index, autopct='%1.1f%%')
+    plt.title('Gender Distribution')
     if output:
-        # TODO: implement the output logic
-        pass
+        plt.savefig('gender_distribution.png')  # Save the plot to a file
+    else:
+        plt.show()  # Show the plot on the screen
 
+    # Plot a bar chart of the average age by relationship status
+    age_mean = df.groupby('relationship_status')['age'].mean()
+    plt.figure()
+    plt.bar(age_mean.index, age_mean)
+    plt.title('Average Age by Relationship Status')
+    plt.xlabel('Relationship Status')
+    plt.ylabel('Average Age')
+    plt.xticks(rotation=45)
+    if output:
+        plt.savefig('age_by_relationship_status.png')  # Save the plot to a file
+    else:
+        plt.show()  # Show the plot on the screen
 
-def data_summary(data, output=None):
-    print("Generating a summary of the data from Facebook account.")
-    # Convert the data to a list of strings
-    data_list = []
-    for key, value in data.items():
-        if isinstance(value, dict):
-            value = value.get('name')
-        data_list.append(str(value))
-    # Create a gensim dictionary and corpus from the data list
-    dictionary = gensim.corpora.Dictionary([data_list])
-    corpus = [dictionary.doc2bow([text]) for text in data_list]
-    # Create a gensim LDA model with 1 topic and 10 passes
-    lda_model = gensim.models.LdaModel(corpus=corpus,
-                                        id2word=dictionary,
-                                        num_topics=1,
-                                        random_state=100,
-                                        update_every=1,
-                                        chunksize=100,
-                                        passes=10,
-                                        alpha='auto',
-                                        per_word_topics=True)
-    # Print the topic words and their probabilities
-    print(lda_model.print_topics())
+    # Create a summary of the data from the Facebook account
+    summary = f"""
+    Facebook Account Summary:
+    Number of users: {len(df)}
+    Average age: {df['age'].mean():.1f}
+    Most common location: {df['location'].mode()[0]}
+    Most common education level: {df['education_level'].mode()[0]}
+    Most common relationship status: {df['relationship_status'].mode()[0]}
+    Most common employer: {df['work'].mode()[0]}
+    """
+    print(summary)  # Print the summary to the console
+
     # Optionally, save the summary to a file in the specified format
     if output:
-        # TODO: implement the output logic
-        pass
-
+        with open('facebook_account_summary.txt', 'w') as f:
+            f.write(summary)
 
 def main():
     parser = ArgumentParser(
@@ -240,7 +198,6 @@ def main():
             data_summary(data, output)
     else:
         print("Please provide a valid Facebook account ID or URL.")
-
 
 if __name__ == "__main__":
     main()

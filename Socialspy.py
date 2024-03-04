@@ -1,4 +1,3 @@
-import urllib.request
 import json
 import signal
 import os
@@ -7,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sherlock
 import gensim
+import aiohttp
+import asyncio
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from colorama import init
 
@@ -42,30 +43,31 @@ class QueryNotifyPrint:
         if self.verbose:
             print(result)
 
-def facebook_advanced_search(account_id, verbose=0):
+async def facebook_advanced_search(account_id, verbose=0):
     url = f"https://graph.facebook.com/{account_id}"
     access_token = 'your_access_token_here'  # Replace with your Facebook Graph API access token
     try:
         full_url = f"{url}?fields=id,name,email,first_name,last_name,gender,birthday,location,work,education,relationship_status&access_token={access_token}"
-        response = urllib.request.urlopen(full_url)
-        data = json.loads(response.read().decode('utf-8'))
-        if 'error' in data:
-            print(f"Error: {data['error']['message']}")
-        else:
-            print("Facebook Account Information:")
-            print(f"Name: {data.get('name')}")
-            print(f"ID: {data.get('id')}")
-            print(f"Email: {data.get('email')}")
-            print(f"First Name: {data.get('first_name')}")
-            print(f"Last Name: {data.get('last_name')}")
-            print(f"Gender: {data.get('gender')}")
-            print(f"Birthday: {data.get('birthday')}")
-            print(f"Location: {data.get('location')}")
-            print(f"Work: {data.get('work')}")
-            print(f"Education: {data.get('education')}")
-            print(f"Relationship Status: {data.get('relationship_status')}")
-            return data
-    except urllib.error.URLError as e:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(full_url) as response:
+                data = await response.json()
+                if 'error' in data:
+                    print(f"Error: {data['error']['message']}")
+                else:
+                    print("Facebook Account Information:")
+                    print(f"Name: {data.get('name')}")
+                    print(f"ID: {data.get('id')}")
+                    print(f"Email: {data.get('email')}")
+                    print(f"First Name: {data.get('first_name')}")
+                    print(f"Last Name: {data.get('last_name')}")
+                    print(f"Gender: {data.get('gender')}")
+                    print(f"Birthday: {data.get('birthday')}")
+                    print(f"Location: {data.get('location')}")
+                    print(f"Work: {data.get('work')}")
+                    print(f"Education: {data.get('education')}")
+                    print(f"Relationship Status: {data.get('relationship_status')}")
+                    return data
+    except aiohttp.ClientError as e:
         print(f"Network error: {e}")
 
 def social_media_search(username, verbose=0):
@@ -138,7 +140,7 @@ def data_analysis(data, output=None):
         with open('facebook_account_summary.txt', 'w') as f:
             f.write(summary)
 
-def main():
+async def main():
     parser = ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
         description=f"{module_name} (Version {__version__})"
@@ -186,7 +188,7 @@ def main():
 
     if account_id.isdigit():
         # Search for the Facebook account information
-        data = facebook_advanced_search(account_id, verbose)
+        data = await facebook_advanced_search(account_id, verbose)
         if search:
             # Search for the given username on other social media platforms
             social_media_search(data.get('name'), verbose)
@@ -200,4 +202,4 @@ def main():
         print("Please provide a valid Facebook account ID or URL.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
